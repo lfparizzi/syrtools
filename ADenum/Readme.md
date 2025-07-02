@@ -1,4 +1,4 @@
-# Installation:<br>
+# Installation (for kali):<br>
 ```
 sudo apt update
 sudo apt-get install libsasl2-dev python2-dev libldap2-dev libssl-dev
