@@ -64,12 +64,12 @@ for item in "${results[@]}"; do
 done
 
 echo ""
-echo "Deseja realizar escaneamento nos IPs?"
+echo "Escolha uma das opções para escanear:"
 echo "1) Não Escanear"
 echo "2) Scan Básico (nmap -sS -sV)"
 echo "3) Scan All Ports (nmap -sS -sV -p-)"
-echo "4) Scan vulnerabilidades SMB (SMBv1 e SMBv2)"
-echo "5) Scan SNMP (porta 161 e resposta pública)"
+echo "4) Scan vulnerabilidades SMB (SMBv1 e Signing False)"
+echo "5) Scan vulnerabilidades SNMP (Versão 1 e community public)"
 read -rp "Escolha uma opção [1-5]: " scan_option
 
 case "$scan_option" in
@@ -86,8 +86,8 @@ case "$scan_option" in
     4)
         echo -e "\nIniciando todos os scans SMB (aguarde)...\n"
 
-        smb_v1_all="todos_smbv1_ativos.txt"
-        smb_v2_all="todos_smbv2_assinatura_nao_forcada.txt"
+        smb_v1_all="Vulns_smbv1_ativos.txt"
+        smb_v2_all="Vulns_smbv2_assinatura_nao_forcada.txt"
 
         > "$smb_v1_all"
         > "$smb_v2_all"
@@ -133,7 +133,7 @@ case "$scan_option" in
 
         snmp_ips="ips_snmp_ativos.txt"
         snmp_output="nmap_snmp_scan.txt"
-        snmp_vuln="ipsSNMPvuln.txt"
+        snmp_vuln="Vulns_SNMP_inseguro.txt"
 
         > "$snmp_ips"
         > "$snmp_output"
