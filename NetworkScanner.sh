@@ -70,7 +70,8 @@ echo "2) Scan Básico (nmap -sS -sV)"
 echo "3) Scan All Ports (nmap -sS -sV -p-)"
 echo "4) Scan vulnerabilidades SMB (SMBv1 e Signing False)"
 echo "5) Scan vulnerabilidades SNMP (Versão 1 e community public)"
-read -rp "Escolha uma opção [1-5]: " scan_option
+echo "6) Null Access Scan"
+read -rp "Escolha uma opção [1-6]: " scan_option
 
 case "$scan_option" in
     1)
@@ -166,9 +167,86 @@ case "$scan_option" in
         echo ""
         echo "Scan SNMP concluído!"
         echo "IPs com resposta ao snmpwalk público salvos em: $snmp_vuln"
-        cat "$snmp_vuln"
+        ;;
+     6)
+        echo -e "\nIniciando enumeração SMB (null sessions com netexec)...\n"
+
+        # Arquivos temporários
+        smb_445_ips="ips_445_ativos.txt"
+        null_sessions="null-sessions.txt"
+        netexec_output="netexec_smb_output.txt"
+        shares_output="nullsession_shares.txt"
+        resumo_output="resumo_null_shares.txt"
+
+        # Limpando arquivos antigos
+        > "$smb_445_ips"
+        > "$null_sessions"
+        > "$netexec_output"
+        > "$shares_output"
+        > "$resumo_output"
+
+        # Fase 1: IPs com porta 445 aberta
+        echo "[*] Fase 1: Verificando IPs com porta 445 aberta..."
+        for range in "${!ip_files_map[@]}"; do
+            ip_file="${ip_files_map[$range]}"
+            [ ! -s "$ip_file" ] && continue
+
+            echo "Escaneando porta 445 em IPs do range $range..."
+            nmap -p 445 --open -n --min-rate 3000 -iL "$ip_file" -oG - | awk '/445\/open/ {print $2}' >> "$smb_445_ips"
+        done
+
+        if [ ! -s "$smb_445_ips" ]; then
+            echo "Nenhum IP com porta 445 aberta foi encontrado."
+            exit 0
+        fi
+
+        sort -u "$smb_445_ips" -o "$smb_445_ips"
+        echo "[*] IPs com porta 445 aberta salvos em: $smb_445_ips"
+
+        # Fase 2: Rodando netexec para autenticação null session
+        echo "[*] Fase 2: Rodando netexec para autenticação null session..."
+        netexec smb "$smb_445_ips" -u '' -p '' | tee "$netexec_output"
+
+        # Fase 3: Filtrando hosts com null session
+        echo "[*] Fase 3: Filtrando hosts com null session..."
+        grep "\[+\]" "$netexec_output" | tr -s ' ' | cut -d ' ' -f2 | sort -u > "$null_sessions"
+
+        if [ ! -s "$null_sessions" ]; then
+            echo "Nenhum host com null session foi encontrado."
+            exit 0
+        fi
+
+        echo "[*] IPs com null session salvos em: $null_sessions"
+
+        # Fase 4: Enumerando shares acessíveis via null session
+        echo "[*] Fase 4: Enumerando shares acessíveis via null session..."
+        netexec smb "$null_sessions" -u '' -p '' --shares | tee "$shares_output"
+
+        # Padroniza múltiplos espaços
+        tr -s ' ' < "$shares_output" > "$shares_output.tmp" && mv "$shares_output.tmp" "$shares_output"
+
+        # Fase 5: Gerando tabela de resumo usando diretamente null_sessions.txt
+        echo "[*] Fase 5: Gerando tabela de resumo..."
+        > "$resumo_output"
+        echo -e "Resumo dos resultados:" >> "$resumo_output"
+        printf "%-25s %s\n" "IP Null Access" >> "$resumo_output"
+        printf "%-25s %s\n" "-------------------------" >> "$resumo_output"
+
+        while read -r ip; do
+            # Extrai todas as shares do shares_output associadas ao IP
+            shares=$(grep "^$ip " "$shares_output" | cut -d ' ' -f2- | tr '\n' ',' | sed 's/,$//')
+            printf "%-25s %s\n" "$ip" "$shares" >> "$resumo_output"
+        done < "$null_sessions"
+
+        # Mostra resumo
+        echo ""
+        cat "$resumo_output"
+        echo ""
+        echo "[*] Resumo também salvo em: $resumo_output"
+        echo "[*] Resultado completo do netexec salvo em: $shares_output"
         exit 0
         ;;
+
     *)
         echo "Opção inválida."
         exit 1
@@ -188,4 +266,3 @@ for range in "${!ip_files_map[@]}"; do
     echo "Resultado salvo em: $output_scan_file"
     echo ""
 done
-
