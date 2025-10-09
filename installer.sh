@@ -7,6 +7,9 @@ sudo apt update -y
 # Executando ações comuns
 gunzip /usr/share/wordlists/rockyou.txt.gz
 
+# Habilita scripts
+chmod +x NetworkScanner.sh
+
 # Instala ADENUM
 sudo apt-get install libsasl2-dev python2-dev libldap2-dev libssl-dev -y
 pip3 install pwn==1.0 --break-system-packages
