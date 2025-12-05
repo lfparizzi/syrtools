@@ -167,6 +167,7 @@ case "$scan_option" in
         echo ""
         echo "Scan SNMP concluído!"
         echo "IPs com resposta ao snmpwalk público salvos em: $snmp_vuln"
+        exit 0
         ;;
      6)
         echo -e "\nIniciando enumeração SMB (null sessions com netexec)...\n"
