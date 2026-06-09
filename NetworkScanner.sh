@@ -1,21 +1,28 @@
 #!/bin/bash
-# V3.1 (SMBv1, scans, Assinatura SMB e SNMP)
+# V3.2 (Added --ping-only support)
 # Script para escanear ranges de IP e realizar testes adicionais modulares
-# Uso: ./NetworkScannerV2.sh <ip/range/wordlist> [--force]
-
-# Por padrão ele vai fazer um pingsweap e vai trabalhar apenas nos IPs que responderem ao ping, para forçar os testes em todos os IPs dos ranges, utilizar a opção "--force"
+# Uso: ./NetworkScannerV2.sh <ip/range/wordlist> [--force] [--ping-only]
+# Funcionalidade --ping-only para quando a descoberta de hosts passa por tratamento do firewall, aplicando todos os hosts como ativos
 
 if [ "$#" -lt 1 ]; then
-    echo "Uso: $0 <ip|range|wordlist.txt> [--force]"
+    echo "Uso: $0 <ip|range|wordlist.txt> [--force] [--ping-only]"
     exit 1
 fi
 
 input="$1"
 force_all_ips=false
+ping_args="-sn"
 
-if [ "$2" == "--force" ]; then
-    force_all_ips=true
-fi
+# Loop through arguments to check for flags
+for arg in "$@"; do
+    if [ "$arg" == "--force" ]; then
+        force_all_ips=true
+    fi
+    if [ "$arg" == "--ping-only" ]; then
+        ping_args="-sn -PE"
+        echo "[!] Modo --ping-only ativado: Usando apenas ICMP Echo Request."
+    fi
+done
 
 # Se for um arquivo, trata como wordlist. Caso contrário, trata como range único.
 if [ -f "$input" ]; then
@@ -39,7 +46,8 @@ for range in "${ranges[@]}"; do
         echo "Modo --force ativado. Gerando todos os IPs do range $range..."
         nmap -n -sL "$range" | awk '/Nmap scan report for/ { print $NF }' > "$output_file"
     else
-        scan_output=$(nmap -sn -n --min-rate 2000 "$range" | grep "Nmap scan report for" | cut -d " " -f 5)
+        # Aqui utilizamos a variável ping_args que pode conter apenas -sn ou -sn -PE
+        scan_output=$(sudo nmap $ping_args -n --min-rate 2000 "$range" | grep "Nmap scan report for" | cut -d " " -f 5)
         echo "$scan_output" | sed '/^$/d' > "$output_file"
     fi
 
